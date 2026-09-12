@@ -7,6 +7,9 @@ import {
   onSnapshot,
   orderBy,
   query,
+  getDocs,
+  startAfter,
+  documentId,
 } from "firebase/firestore";
 import { toast } from "sonner";
 import { getFirebaseClient } from "@/lib/firebase/client";
@@ -16,9 +19,16 @@ import type {
   Appointment,
   ChatMessage,
   Notice,
+  SyncStatus,
 } from "@/types/journey";
 
 export function useAppointment(id: string) {
+  const [sync, setSync] = useState<SyncStatus>("Pending");
+  const [olderMessages, setOlderMessages] = useState<ChatMessage[]>([]);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const ackRevision = useRef<number | null>(null);
+  const serverRevision = useRef(-1);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]),
     [notices, setNotices] = useState<Notice[]>([]),
@@ -71,6 +81,11 @@ export function useAppointment(id: string) {
               current.current = snap.data() as Appointment;
               setAppointment(current.current);
               setCached(snap.metadata.fromCache);
+              if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites) {
+                serverRevision.current = current.current.revision;
+                if (ackRevision.current !== null && serverRevision.current >= ackRevision.current) { setSync("Synced"); ackRevision.current = null; }
+                else if (!lock.current) setSync((old) => old === "Error" ? old : "Synced");
+              }
               setLoading(false);
             },
             fail,
@@ -81,12 +96,15 @@ export function useAppointment(id: string) {
             query(
               collection(ref, "messages"),
               orderBy("createdAt", "desc"),
-              limit(200),
+              orderBy(documentId(), "desc"),
+              limit(40),
             ),
-            (snap) =>
+            (snap) => {
+              setHasOlder(snap.size === 40);
               setMessages(
                 snap.docs.map((d) => d.data() as ChatMessage).reverse(),
-              ),
+              );
+            },
             fail,
           ),
         );
@@ -124,6 +142,7 @@ export function useAppointment(id: string) {
         );
         if (
           initialAppointment.status === "ACTIVE" &&
+          !initialAppointment.simulationRun &&
           !initialAppointment.proposal
         ) {
           void api(`/api/appointments/${id}/actions`, {
@@ -145,11 +164,13 @@ export function useAppointment(id: string) {
     async (target: "messages" | "actions" | "simulation", value: unknown) => {
       if (lock.current || !current.current) return false;
       if (!navigator.onLine) {
+        setSync("Error");
         setError("Bạn đang ngoại tuyến. Nội dung chưa được gửi.");
         return false;
       }
       lock.current = true;
       setBusy(true);
+      setSync("Pending");
       setError("");
       const signature = JSON.stringify([target, value]);
       const command =
@@ -162,14 +183,21 @@ export function useAppointment(id: string) {
             };
       retry.current = command;
       try {
-        await api(`/api/appointments/${id}/${target}`, {
+        setSync("Syncing");
+        const result = await api<{ revision?: number }>(`/api/appointments/${id}/${target}`, {
           requestId: command.requestId,
           revision: command.revision,
           ...(target === "messages" ? { message: value } : { action: value }),
         });
+        ackRevision.current = result.revision ?? current.current.revision;
+        if (serverRevision.current >= ackRevision.current) { setSync("Synced"); ackRevision.current = null; }
         retry.current = null;
         return true;
       } catch (err) {
+        if (target === "simulation" && (value as { type?: string })?.type === "TICK" && err instanceof ApiError && err.status === 409) {
+          retry.current = null; setSync("Pending"); return true;
+        }
+        setSync("Error");
         if (
           err instanceof ApiError &&
           [400, 403, 409, 429].includes(err.status)
@@ -184,9 +212,25 @@ export function useAppointment(id: string) {
     },
     [id],
   );
+  async function loadOlder() {
+    if (historyBusy) return;
+    const first = [...olderMessages, ...messages].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))[0];
+    if (!first) return;
+    setHistoryBusy(true);
+    try {
+      const snap = await getDocs(query(collection(getFirebaseClient().db, "appointments", id, "messages"), orderBy("createdAt", "desc"), orderBy(documentId(), "desc"), startAfter(first.createdAt, first.id), limit(40)));
+      setOlderMessages((old) => [...snap.docs.map((d) => d.data() as ChatMessage), ...old]);
+      setHasOlder(snap.size === 40);
+    } catch (err) { setError(errorText(err)); }
+    finally { setHistoryBusy(false); }
+  }
   return {
     appointment,
-    messages,
+    messages: Array.from(new Map([...olderMessages, ...messages].map((m) => [m.id, m])).values()).sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id)),
+    sync,
+    loadOlder,
+    hasOlder,
+    historyBusy,
     notices,
     run,
     loading,

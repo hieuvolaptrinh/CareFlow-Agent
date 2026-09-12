@@ -17,7 +17,7 @@ export function getFirebaseClient() {
   };
 
   if (!config.apiKey || !config.projectId || !config.appId) {
-    throw new Error("Thiếu cấu hình Firebase Web trong .env.local.");
+    throw new Error("Thiếu cấu hình kết nối ứng dụng.");
   }
 
   const app = getApps().some((item) => item.name === "careflow-web")

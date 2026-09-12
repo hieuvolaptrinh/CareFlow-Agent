@@ -52,7 +52,40 @@ export interface RuntimeStep {
   roomId: string | null;
   ticket: "NONE" | "WAITING" | "CALLED" | "SERVING" | "DONE";
   resultPending: boolean;
+  startedAt?: number;
+  completedAt?: number;
+  aiNote?: {
+    observation: string;
+    nextAction: string;
+    generatedAt: number;
+  };
 }
+export interface IntakeFact {
+  value: string;
+  status: "ANSWERED" | "UNKNOWN" | "DECLINED";
+  sourceMessageId: string;
+  updatedAt: number;
+}
+export interface IntakeContext {
+  mode: "DENTAL";
+  version: number;
+  facts: Record<string, IntakeFact>;
+  workflowId: string | null;
+  missing: string[];
+  summary: string;
+  confirmedVersion: number | null;
+  safety: "CLEAR" | "UNCLEAR" | "URGENT";
+}
+export interface SimulationRun {
+  status: "RUNNING" | "PAUSED" | "COMPLETED";
+  speed: 1 | 2 | 4;
+  preset: "DENTAL_VIDEO";
+  nextTickAt: number;
+  nextStepId: string | null;
+  reason: string | null;
+  crowdApplied: boolean;
+}
+export type SyncStatus = "Pending" | "Syncing" | "Synced" | "Error";
 export interface Intake {
   workflowId: string;
   kind: Kind;
@@ -88,6 +121,9 @@ export interface Appointment {
   proposal: Proposal | null;
   rejected: { fingerprint: string; at: number; unavailable: boolean } | null;
   onHoldReason: string | null;
+  intakeContext?: IntakeContext;
+  simulationRun?: SimulationRun;
+  agentPendingUntil?: number;
 }
 export interface ChatMessage {
   id: string;

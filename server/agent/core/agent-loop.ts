@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import type { Appointment, ChatMessage } from "@/types/journey";
 import { interpretationSchema, interpretJourney } from "./journey-agent";
+import { dentalInterpretationSchema, interpretDental } from "./dental-agent";
 
 /**
  * CareFlow Agent Loop Skeleton
@@ -12,8 +13,10 @@ export async function runAgentLoop(
   appointment: Appointment,
   message: string,
   history: ChatMessage[],
+  sourceMessageId = "synthetic-message",
+  now = Date.now(),
 ) {
-  return interpretJourney(appointment, message, history, async (prompt) => {
+  const provider = async (prompt: string) => {
     const ai = new GoogleGenAI({
       vertexai: true,
       project: process.env.GCP_PROJECT_ID,
@@ -24,12 +27,15 @@ export async function runAgentLoop(
       contents: prompt,
       config: {
         temperature: 0.1,
-        maxOutputTokens: 1400,
+        maxOutputTokens: 3000,
         responseMimeType: "application/json",
-        responseJsonSchema: z.toJSONSchema(interpretationSchema),
+        responseJsonSchema: z.toJSONSchema(appointment.intakeContext ? dentalInterpretationSchema : interpretationSchema),
         httpOptions: { timeout: 20000 },
       },
     });
     return JSON.parse(response.text || "{}");
-  });
+  };
+  return appointment.intakeContext
+    ? interpretDental(appointment, message, history, provider, sourceMessageId, now)
+    : interpretJourney(appointment, message, history, provider);
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import raw from "@/config/workflows/patient-demo.json";
+import dental from "@/config/workflows/dental-demo.json";
 
 const stepSchema = z.object({
   id: z.string().min(1),
@@ -90,4 +91,4 @@ export const catalogSchema = z
       }
     }
   });
-export const catalog = catalogSchema.parse(raw);
+export const catalog = catalogSchema.parse({ ...raw, workflows: [...raw.workflows, ...dental.workflows] });

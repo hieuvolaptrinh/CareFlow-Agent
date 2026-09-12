@@ -5,7 +5,7 @@
     "rejectionCooldownMs": 300000,
     "freshnessMs": 300000,
     "redFlags": ["đau ngực dữ dội", "khó thở", "bất tỉnh", "chảy máu xối xả", "co giật"],
-    "handoffMessage": "Yêu cầu hỗ trợ đã được ghi nhận trong demo; chưa có nhân viên thật nhận ca. Hãy liên hệ quầy tiếp nhận nếu bạn đang ở bệnh viện."
+    "handoffMessage": "Yêu cầu hỗ trợ đã được ghi nhận. Nếu cần trợ giúp ngay, hãy liên hệ trực tiếp quầy tiếp nhận."
   },
   "resources": [
     {
@@ -23,7 +23,7 @@
       "name": "Phòng A · Nha khoa",
       "floor": "Tầng 2",
       "serviceId": "dental",
-      "doctorName": "BS. An (demo)",
+      "doctorName": "BS. An",
       "doctorSpecialty": "Răng hàm mặt",
       "serviceMinutes": 10,
       "travelMinutes": 2
@@ -33,7 +33,7 @@
       "name": "Phòng A2 · Nha khoa",
       "floor": "Tầng 2",
       "serviceId": "dental",
-      "doctorName": "BS. Bình (demo)",
+      "doctorName": "BS. Bình",
       "doctorSpecialty": "Răng hàm mặt",
       "serviceMinutes": 10,
       "travelMinutes": 2
@@ -63,7 +63,7 @@
       "name": "Phòng C · Khám tổng hợp",
       "floor": "Tầng 2",
       "serviceId": "general",
-      "doctorName": "BS. Chi (demo)",
+      "doctorName": "BS. Chi",
       "doctorSpecialty": "Khám tổng hợp",
       "serviceMinutes": 12,
       "travelMinutes": 3

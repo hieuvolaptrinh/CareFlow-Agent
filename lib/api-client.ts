@@ -38,13 +38,13 @@ export function errorText(error: unknown) {
     "auth/email-already-in-use": "Email này đã có tài khoản. Hãy đăng nhập.",
     "auth/weak-password": "Mật khẩu cần ít nhất 6 ký tự.",
     "auth/operation-not-allowed":
-      "Email/Password chưa được bật trong Firebase Authentication.",
+      "Tính năng đăng nhập bằng email chưa sẵn sàng.",
     "auth/network-request-failed":
-      "Không kết nối được Firebase. Kiểm tra mạng rồi thử lại.",
+      "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.",
     "permission-denied":
-      "Chưa có quyền đọc dữ liệu. Kiểm tra tài khoản và Firestore Rules.",
+      "Tài khoản chưa được cấp quyền truy cập dữ liệu này.",
     "failed-precondition":
-      "Firestore cần cấu hình index. Xem hướng dẫn cài đặt demo.",
+      "Dữ liệu đang được cấu hình. Vui lòng thử lại sau.",
   };
   return (
     (code && messages[code]) ||

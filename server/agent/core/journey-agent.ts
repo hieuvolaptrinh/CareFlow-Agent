@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { catalog } from "@/server/workflow/catalog";
-import type { Appointment, ChatMessage, Intake } from "@/types/journey";
+import type { Appointment, ChatMessage, Intake, IntakeContext } from "@/types/journey";
 import { checkSafetyGuardrails } from "../policies/safety-guardrails";
 
 export const interpretationSchema = z
@@ -15,6 +15,7 @@ export const interpretationSchema = z
 export type Interpretation = z.infer<typeof interpretationSchema>;
 export type Interpreter = (prompt: string) => Promise<unknown>;
 export interface AgentResult {
+  context?: IntakeContext;
   message: string;
   draft: Intake | null;
   handoff: boolean;

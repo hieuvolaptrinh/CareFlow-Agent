@@ -13,7 +13,7 @@ export function stepPresentation(a: Appointment, id: string) {
     : missing.length
       ? `Chờ: ${missing.map((key) => a.workflow!.steps.find((s) => s.id === key)!.name).join(", ")}.`
       : def?.condition && a.conditions[def.condition] === "UNDECIDED"
-        ? "Chờ chỉ định demo trong bảng mô phỏng; chưa phải bước bắt buộc."
+        ? "Đang chờ xác nhận chỉ định; bước này chưa bắt buộc."
         : step.resultPending
           ? "Đã thực hiện dịch vụ. Nhân viên cần cập nhật kết quả để mở bước sau."
           : step.ticket === "SERVING"

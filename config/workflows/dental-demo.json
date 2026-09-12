@@ -1,0 +1,50 @@
+{
+  "workflows": [
+    {
+      "id": "dental-pain", "name": "Nha khoa · Đau / ê răng", "kind": "NEW", "version": 1, "demo": true,
+      "questions": ["Bạn khó chịu ở đâu và từ khi nào?", "Có triệu chứng đi kèm nào không?"],
+      "selection": "Khám mới vì đau hoặc ê răng, không phải chẩn đoán.",
+      "steps": [
+        {"id":"checkin","name":"Tiếp nhận nha khoa","kind":"CHECKIN","prerequisites":[],"roomIds":["reception"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Xác nhận thông tin bạn đã khai để bắt đầu hành trình."},
+        {"id":"consult","name":"Khám nha khoa ban đầu","kind":"DOCTOR","prerequisites":["checkin"],"roomIds":["dental-a","dental-a2"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Tiếp nhận tình trạng và cập nhật tiến độ khám nha khoa."},
+        {"id":"lab","name":"Dịch vụ xét nghiệm nếu có chỉ định","kind":"ORDER","prerequisites":["consult"],"roomIds":["lab-a"],"required":false,"reorderGroup":"investigations","condition":"lab","instruction":"Bước này chỉ mở khi có chỉ định phù hợp."},
+        {"id":"imaging","name":"Chụp hình nha khoa","kind":"ORDER","prerequisites":["consult"],"roomIds":["image-b"],"required":false,"reorderGroup":"investigations","condition":"imaging","instruction":"Di chuyển tới phòng chụp hình khi bước đã được xác nhận."},
+        {"id":"review","name":"Xem lại kết quả","kind":"DOCTOR","prerequisites":["lab","imaging"],"roomIds":["dental-a","dental-a2"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Theo dõi trạng thái kết quả và bước tiếp theo trong hành trình."},
+        {"id":"billing","name":"Xác nhận thanh toán","kind":"BILLING","prerequisites":["review"],"roomIds":["cashier"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Theo dõi trạng thái thanh toán tại quầy."},
+        {"id":"medication","name":"Nhận thuốc nếu có đơn","kind":"PHARMACY","prerequisites":["billing"],"roomIds":["pharmacy"],"required":false,"reorderGroup":null,"condition":"medication","instruction":"Chỉ đến quầy thuốc khi bước này được xác nhận."},
+        {"id":"finish","name":"Hoàn tất hành trình","kind":"FINISH","prerequisites":["medication"],"roomIds":[],"required":true,"reorderGroup":null,"condition":null,"instruction":"Xem lại context và lịch sử hành trình đã lưu."}
+      ]
+    },
+    {
+      "id":"dental-gum","name":"Nha khoa · Khám nướu","kind":"NEW","version":1,"demo":true,
+      "questions":["Bạn thấy khó chịu hoặc chảy máu nướu khi nào?"],"selection":"Nhu cầu khám nướu hoặc chảy máu khi chải răng, không gán chẩn đoán.",
+      "steps":[
+        {"id":"checkin","name":"Tiếp nhận nha khoa","kind":"CHECKIN","prerequisites":[],"roomIds":["reception"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Xác nhận thông tin đã khai để bắt đầu hành trình."},
+        {"id":"consult","name":"Khám răng và nướu","kind":"DOCTOR","prerequisites":["checkin"],"roomIds":["dental-a","dental-a2"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Tiếp nhận tình trạng răng và nướu, sau đó cập nhật tiến độ."},
+        {"id":"guidance","name":"Hướng dẫn sau khám","kind":"ROOM","prerequisites":["consult"],"roomIds":["dental-a","dental-a2"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Xác nhận bạn đã nhận hướng dẫn sau buổi khám."},
+        {"id":"finish","name":"Hoàn tất hành trình","kind":"FINISH","prerequisites":["guidance"],"roomIds":[],"required":true,"reorderGroup":null,"condition":null,"instruction":"Lịch sử được lưu vào tài khoản."}
+      ]
+    },
+    {
+      "id":"dental-followup","name":"Nha khoa · Tái khám","kind":"FOLLOW_UP","version":1,"demo":true,
+      "questions":["Bạn tái khám sau lần xử lý nào? Có thông tin lần trước không?"],"selection":"Tái khám nha khoa; chấp nhận người dùng không nhớ thông tin lần trước.",
+      "steps":[
+        {"id":"checkin","name":"Xác nhận thông tin & tiếp nhận tái khám","kind":"CHECKIN","prerequisites":[],"roomIds":["reception"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Thông tin lần trước được hỏi và xác nhận trong context trước khi tiếp nhận."},
+        {"id":"consult","name":"Tái khám nha khoa","kind":"DOCTOR","prerequisites":["checkin"],"roomIds":["dental-a","dental-a2"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Kiểm tra thông tin lần khám trước và cập nhật tiến độ tái khám."},
+        {"id":"imaging","name":"Chụp hình bổ sung nếu được chỉ định","kind":"ORDER","prerequisites":["consult"],"roomIds":["image-b"],"required":false,"reorderGroup":null,"condition":"imaging","instruction":"Bước này chỉ mở khi có chỉ định phù hợp."},
+        {"id":"review","name":"Tổng kết tái khám","kind":"DOCTOR","prerequisites":["imaging"],"roomIds":["dental-a","dental-a2"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Xem lại tiến độ và thông tin của buổi tái khám."},
+        {"id":"finish","name":"Hoàn tất hành trình","kind":"FINISH","prerequisites":["review"],"roomIds":[],"required":true,"reorderGroup":null,"condition":null,"instruction":"Lưu toàn bộ lịch sử tái khám để xem lại."}
+      ]
+    },
+    {
+      "id":"dental-routine","name":"Nha khoa · Kiểm tra định kỳ","kind":"CHECKUP","version":1,"demo":true,
+      "questions":["Bạn muốn kiểm tra định kỳ và hiện có triệu chứng nào không?"],"selection":"Kiểm tra răng định kỳ, chưa ghi nhận khó chịu cần khám riêng.",
+      "steps":[
+        {"id":"checkin","name":"Tiếp nhận kiểm tra định kỳ","kind":"CHECKIN","prerequisites":[],"roomIds":["reception"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Tiếp nhận thông tin đã xác nhận."},
+        {"id":"consult","name":"Kiểm tra nha khoa định kỳ","kind":"DOCTOR","prerequisites":["checkin"],"roomIds":["dental-a","dental-a2"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Theo dõi tiến độ kiểm tra nha khoa định kỳ."},
+        {"id":"summary","name":"Tổng kết buổi kiểm tra","kind":"ROOM","prerequisites":["consult"],"roomIds":["dental-a","dental-a2"],"required":true,"reorderGroup":null,"condition":null,"instruction":"Ghi nhận đã hoàn tất buổi kiểm tra."},
+        {"id":"finish","name":"Hoàn tất hành trình","kind":"FINISH","prerequisites":["summary"],"roomIds":[],"required":true,"reorderGroup":null,"condition":null,"instruction":"Giữ context và lịch sử để xem lại."}
+      ]
+    }
+  ]
+}

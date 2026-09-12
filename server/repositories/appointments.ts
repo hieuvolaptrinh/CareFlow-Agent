@@ -11,6 +11,9 @@ import {
   refreshProposal,
 } from "@/server/workflow/engine";
 import { runAgentLoop } from "@/server/agent/core/agent-loop";
+import { emptyIntakeContext } from "@/lib/intake-context";
+import { isRunCommand, simulate, startSimulation, STEP_INTERVAL_MS } from "@/server/workflow/simulator";
+import { generateStepNote } from "@/server/agent/core/step-note-agent";
 
 export const appointmentRef = (id: string) =>
   getFirebaseAdmin().db.collection("appointments").doc(id);
@@ -26,6 +29,31 @@ export async function getAppointment(id: string, uid: string) {
   assertOwner(a, uid);
   return a;
 }
+export async function getOrCreateStepNote(id: string, uid: string, stepId: string) {
+  const initial = await getAppointment(id, uid);
+  const initialStep = initial.steps[stepId];
+  if (!initial.workflow?.steps.some((step) => step.id === stepId) || !initialStep)
+    throw new JourneyError("Không tìm thấy bước trong hành trình.", 404, "NOT_FOUND");
+  if (initialStep.aiNote) return initialStep.aiNote;
+
+  const content = await generateStepNote(initial, stepId);
+  const ref = appointmentRef(id);
+  return getFirebaseAdmin().db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const current = snap.data() as Appointment | undefined;
+    assertOwner(current, uid);
+    const step = current.steps[stepId];
+    if (!current.workflow?.steps.some((definition) => definition.id === stepId) || !step)
+      throw new JourneyError("Bước không còn tồn tại trong hành trình.", 409, "REVISION_CONFLICT");
+    if (step.aiNote) return step.aiNote;
+    const note = { ...content, generatedAt: Date.now() };
+    step.aiNote = note;
+    current.revision++;
+    current.updatedAt = note.generatedAt;
+    tx.set(ref, current);
+    return note;
+  });
+}
 export async function newAppointment(uid: string, requestId: string) {
   const db = getFirebaseAdmin().db;
   const key = db
@@ -38,12 +66,13 @@ export async function newAppointment(uid: string, requestId: string) {
     const old = await tx.get(key);
     if (old.exists) return { id: old.data()!.appointmentId as string };
     const a = createAppointment(ref.id, uid, Date.now());
+    a.intakeContext = emptyIntakeContext();
     tx.create(ref, a);
     tx.create(key, { appointmentId: ref.id });
     tx.create(ref.collection("messages").doc("welcome"), {
       id: "welcome",
       role: "model",
-      text: "Chào bạn! Bạn muốn khám mới, tái khám hay khám sức khỏe? Hãy cho mình biết nhu cầu và tình trạng bạn muốn trao đổi. Đây là hành trình mô phỏng.",
+      text: "Chào bạn! Bạn muốn khám mới nha khoa, tái khám hay kiểm tra răng định kỳ? Hãy mô tả ngắn nhu cầu hoặc tình trạng của bạn. Mình chỉ hỏi thêm tối đa 2 ý cần thiết trước khi bạn xác nhận hành trình.",
       createdAt: a.createdAt,
     });
     return { id: ref.id };
@@ -76,11 +105,27 @@ export async function mutateAppointment(
         403,
         "DEMO_DISABLED",
       );
+    const now = Date.now();
+    if ((a.agentPendingUntil ?? 0) > now && command.type !== "PAUSE" && command.type !== "TICK")
+      throw new JourneyError("Agent đang cập nhật lời khai. Vui lòng đợi.", 409, "AGENT_BUSY");
+    if (!simulation && command.type === "CHOOSE_TEMPLATE" && a.intakeContext)
+      throw new JourneyError("Ca nha khoa cần lời khai đầy đủ. Dùng chat hoặc biểu mẫu lời khai.");
     a.revision++;
-    a.updatedAt = Date.now();
+    a.updatedAt = now;
     const message = simulation
-      ? applySimulation(a, command as SimulationAction, a.updatedAt)
-      : applyAction(a, command as JourneyAction, a.updatedAt);
+      ? isRunCommand(command.type) ? simulate(a, command as SimulationAction, now) : applySimulation(a, command as SimulationAction, now)
+      : applyAction(a, command as JourneyAction, now);
+    if (message === null) return { revision: a.revision - 1 };
+    if (command.type === "SAVE_DENTAL_INTAKE" && a.intakeContext) {
+      Object.values(a.intakeContext.facts).forEach((fact) => { if (fact.sourceMessageId === "form-pending") fact.sourceMessageId = `form-${requestId}`; });
+      tx.create(ref.collection("messages").doc(`form-${requestId}`), { id: `form-${requestId}`, role: "user", text: a.intakeContext.summary, createdAt: now });
+      tx.create(ref.collection("contextVersions").doc(String(a.intakeContext.version)), a.intakeContext);
+    }
+    if (command.type === "CONFIRM_INTAKE" && a.intakeContext && process.env.CAREFLOW_DEMO_MODE === "true") startSimulation(a, now);
+    if (["ACCEPT_PROPOSAL", "REJECT_PROPOSAL"].includes(command.type) && a.simulationRun && !a.onHoldReason) {
+      a.simulationRun.status = "RUNNING"; a.simulationRun.reason = null;
+      a.simulationRun.nextTickAt = now + STEP_INTERVAL_MS / a.simulationRun.speed;
+    }
     tx.set(ref, a);
     tx.create(ref.collection("journeyVersions").doc(String(a.revision)), {
       ...a,
@@ -93,6 +138,9 @@ export async function mutateAppointment(
       createdAt: a.updatedAt,
       revision: a.revision,
       actorId: uid,
+      actor: command.type === "TICK" ? "SIMULATOR" : "PATIENT",
+      message,
+      stepId: a.simulationRun?.nextStepId ?? null,
       correlationId: requestId,
     });
     const notice = {
@@ -108,7 +156,7 @@ export async function mutateAppointment(
       text: message,
       createdAt: a.updatedAt,
     });
-    if (command.type === "SUPPORT")
+    if (command.type === "SUPPORT" || (command.type === "SAVE_DENTAL_INTAKE" && a.status === "ON_HOLD"))
       tx.create(ref.collection("supportRequests").doc(requestId), {
         id: requestId,
         status: "DEMO_PENDING",
@@ -163,7 +211,8 @@ export async function sendJourneyMessage(
         409,
         "REVISION_CONFLICT",
       );
-    if (Date.now() - a.updatedAt < 700 && a.revision > 0)
+    if ((a.agentPendingUntil ?? 0) > Date.now()) throw new JourneyError("Agent đang xử lý một tin nhắn. Vui lòng đợi.", 409, "AGENT_BUSY");
+    if (!a.simulationRun && Date.now() - a.updatedAt < 700 && a.revision > 0)
       throw new JourneyError(
         "Hãy đợi một chút trước khi gửi tiếp.",
         429,
@@ -171,8 +220,8 @@ export async function sendJourneyMessage(
       );
     a.revision++;
     a.updatedAt = Date.now();
-    a.proposal = null;
-    a.draftIntake = null;
+    a.agentPendingUntil = a.updatedAt + 60000;
+    if (a.simulationRun?.status === "RUNNING") { a.simulationRun.status = "PAUSED"; a.simulationRun.reason = "Đang cập nhật lời khai. Bấm Tiếp tục sau khi kiểm tra."; }
     tx.set(ref, a);
     tx.create(runRef, {
       id: requestId,
@@ -200,7 +249,7 @@ export async function sendJourneyMessage(
       .map((d) => d.data() as ChatMessage)
       .reverse()
       .filter((m) => m.id !== `user-${requestId}`);
-    const result = await runAgentLoop(start.a, message, history);
+    const result = await runAgentLoop(start.a, message, history, `user-${requestId}`, Date.now());
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const a = snap.data() as Appointment | undefined;
@@ -213,6 +262,12 @@ export async function sendJourneyMessage(
         );
       a.revision++;
       a.updatedAt = Date.now();
+      a.agentPendingUntil = 0;
+      if (result.context) {
+        a.intakeContext = result.context;
+        tx.create(ref.collection("contextVersions").doc(String(result.context.version)), result.context);
+        if (!result.draft && !result.failed && (result.context.summary !== start.a.intakeContext?.summary || result.context.workflowId !== start.a.intakeContext?.workflowId || result.context.safety !== "CLEAR")) a.draftIntake = null;
+      }
       if (result.draft) a.draftIntake = result.draft;
       if (result.handoff) {
         a.status = "ON_HOLD";
@@ -260,8 +315,12 @@ export async function sendJourneyMessage(
           createdAt: a.updatedAt,
         });
     });
-    return { processed: true };
+    return { processed: true, revision: start.a.revision + 1 };
   } catch (error) {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.data()?.agentPendingUntil === start.a.agentPendingUntil) tx.update(ref, { agentPendingUntil: 0 });
+    }).catch(() => {});
     await runRef
       .update({
         stage: "FAILED",

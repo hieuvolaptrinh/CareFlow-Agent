@@ -77,15 +77,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ reply });
-  } catch (error) {
-    console.error("Gemini API error:", error);
-
-    const message = error instanceof Error ? error.message : "Unknown error";
-    const safeMessage =
-      process.env.NODE_ENV === "development"
-        ? `Không gọi được Gemini: ${message}`
-        : "Không gọi được Gemini. Vui lòng thử lại sau.";
-
-    return NextResponse.json({ error: safeMessage }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: "Trợ lý đang tạm gián đoạn. Vui lòng thử lại sau." },
+      { status: 500 },
+    );
   }
 }

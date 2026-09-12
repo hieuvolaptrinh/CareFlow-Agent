@@ -48,14 +48,14 @@ export function StartAgentCard() {
           </div>
           <div>
             <h2 id="start-agent-title" className="text-lg font-semibold">
-              Bắt đầu hành trình cùng CareFlow
+              Bắt đầu hành trình nha khoa
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Không cần đặt lịch. Mở chat, mô tả tình trạng hoặc nhu cầu khám;
-              Agent sẽ hỏi thêm và hướng dẫn bạn từng bước.
+              Mở chat và mô tả ngắn nhu cầu nha khoa. Agent chỉ hỏi thêm vài ý
+              cần thiết rồi hướng dẫn bạn từng bước.
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              Hành trình demo được lưu riêng vào tài khoản, không phải lịch hẹn với bệnh viện.
+              Hành trình được lưu riêng trong tài khoản để bạn có thể tiếp tục khi quay lại.
             </p>
           </div>
         </div>
@@ -66,7 +66,7 @@ export function StartAgentCard() {
           className="min-h-11 w-full sm:w-auto shrink-0"
         >
           {busy ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Bot className="size-4" aria-hidden="true" />}
-          {busy ? "Đang mở Agent…" : error ? "Thử lại · Bắt đầu với Agent" : "Bắt đầu với Agent"}
+          {busy ? "Đang mở Agent…" : error ? "Thử lại · Bắt đầu khám" : "Bắt đầu khám nha khoa"}
         </Button>
       </div>
       {busy && <p role="status" className="text-sm text-muted-foreground">Đang chuẩn bị cuộc trò chuyện của bạn…</p>}

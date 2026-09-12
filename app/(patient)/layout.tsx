@@ -4,26 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  Activity,
   Bell,
-  Bot,
-  Calendar,
-  ChevronRight,
-  Compass,
-  FileText,
-  HeartPulse,
+  ToothbrushSparkles,
   HelpCircle,
   Home,
   LogOut,
-  MapPin,
   Menu,
   PhoneCall,
   Search,
-  Settings,
-  ShieldAlert,
-  Stethoscope,
   User,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,39 +31,20 @@ export default function PatientLayout({
 
   const navigationGroups = [
     {
-      group: "HÀNH TRÌNH",
+      group: "NHA KHOA",
       items: [
         {
-          name: "Tổng quan",
+          name: "Tổng quan nha khoa",
           href: "/patient/dashboard",
           icon: Home,
           active: pathname === "/patient/dashboard",
-        },
-        {
-          name: "Hành trình khám",
-          href: "/patient/visit/V-2026-0912",
-          icon: Activity,
-          active: pathname.startsWith("/patient/visit"),
-          badge: "Đang khám",
-        },
-        {
-          name: "Lịch hẹn khám",
-          href: "/patient/appointments",
-          icon: Calendar,
-          active: pathname.startsWith("/patient/appointments"),
+          badge: undefined,
         },
       ],
     },
     {
-      group: "TRỢ LÝ & HƯỚNG DẪN",
+      group: "TRỢ LÝ & THÔNG BÁO",
       items: [
-        {
-          name: "Trợ lý CareFlow",
-          href: "/patient/careflow",
-          icon: Bot,
-          active: pathname === "/patient/careflow",
-          badge: "AI",
-        },
         {
           name: "Thông báo",
           href: "/patient/notifications",
@@ -92,31 +62,33 @@ export default function PatientLayout({
           href: "/patient/profile",
           icon: User,
           active: pathname === "/patient/profile",
+          badge: undefined,
         },
         {
           name: "Yêu cầu trợ giúp",
           href: "/patient/support",
           icon: HelpCircle,
           active: pathname === "/patient/support",
+          badge: undefined,
         },
       ],
     },
   ];
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <div className="flex flex-col h-full bg-white justify-between">
       <div>
         {/* Brand */}
         <div className="h-16 flex items-center px-6 border-b border-[#E8ECEE] gap-3">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#147D8D] text-white flex items-center justify-center shadow-xs">
-              <HeartPulse className="w-5 h-5" />
+              <ToothbrushSparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="font-bold text-base tracking-tight text-[#171A1C]">
                 CareFlow <span className="text-[#147D8D] font-normal">Agent</span>
               </div>
-              <p className="text-[10px] text-[#667078] -mt-0.5">Cổng Bệnh Nhân</p>
+              <p className="text-[10px] text-[#667078] -mt-0.5">Cổng Nha Khoa</p>
             </div>
           </Link>
         </div>
@@ -175,7 +147,7 @@ export default function PatientLayout({
             Cần người thật trợ giúp?
           </div>
           <p className="text-[11px] text-[#667078] leading-tight mb-2">
-            Nhấn để gửi yêu cầu tiếp đón hỗ trợ trực tiếp tại quầy.
+            Gửi yêu cầu hỗ trợ trực tiếp tới quầy tiếp đón nha khoa.
           </p>
           <Link href="/patient/support">
             <Button size="sm" className="w-full h-7 bg-[#147D8D] hover:bg-[#106b79] text-white text-[11px]">
@@ -207,16 +179,16 @@ export default function PatientLayout({
   );
 
   return (
-    <div className="min-h-screen bg-[#F7F9FA] text-[#171A1C] flex">
+    <div className={`${pathname.startsWith("/patient/appointments/") ? "lg:h-screen lg:overflow-hidden" : "min-h-screen"} bg-[#F7F9FA] text-[#171A1C] flex`}>
       {/* Desktop Sidebar (230px wide, following AGENTS.md) */}
       <aside id="patient-sidebar" className={`${sidebarOpen ? "hidden lg:block" : "hidden"} w-[230px] shrink-0 border-r border-[#E8ECEE] bg-white h-screen sticky top-0 overflow-y-auto`}>
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* Main Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Compact Top Bar (following AGENTS.md) */}
-        <header className="h-16 bg-white border-b border-[#E8ECEE] sticky top-0 z-30 px-4 sm:px-6 flex items-center justify-between gap-4">
+        <header className="h-16 shrink-0 bg-white border-b border-[#E8ECEE] sticky top-0 z-30 px-4 sm:px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -235,17 +207,17 @@ export default function PatientLayout({
                 <Menu className="w-5 h-5" />
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-[260px]">
-                <SheetTitle className="sr-only">Menu Cổng Bệnh Nhân</SheetTitle>
-                <SidebarContent />
+                <SheetTitle className="sr-only">Menu Cổng Nha Khoa</SheetTitle>
+                {sidebarContent}
               </SheetContent>
             </Sheet>
 
             <div>
               <h1 className="text-sm sm:text-base font-bold text-[#171A1C]">
-                Hồ Sơ & Hành Trình Bệnh Nhân
+                Hồ Sơ & Hành Trình Nha Khoa
               </h1>
               <p className="text-[11px] text-[#667078] hidden sm:block">
-                Bệnh viện Đa khoa Evergreen • Khoa Tim Mạch
+                CareFlow Dental • Trợ lý hành trình nha khoa
               </p>
             </div>
           </div>
@@ -254,7 +226,7 @@ export default function PatientLayout({
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center bg-[#F7F9FA] border border-[#E8ECEE] rounded-lg px-3 py-1.5 w-56 text-xs text-[#667078]">
               <Search className="w-3.5 h-3.5 mr-2 text-[#667078]" />
-              <span>Tìm kiếm khoa phòng, bác sĩ...</span>
+              <span>Tìm hướng dẫn nha khoa...</span>
             </div>
 
             <Link href="/patient/notifications">
@@ -276,7 +248,7 @@ export default function PatientLayout({
                 <div className="font-semibold text-[#171A1C] leading-none">Nguyễn Văn A</div>
                 <div className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  Đang tại Bệnh viện
+                  Đang trực tuyến
                 </div>
               </div>
             </div>
@@ -284,7 +256,7 @@ export default function PatientLayout({
         </header>
 
         {/* Content Body */}
-        <main className={`flex-1 p-4 sm:p-6 lg:p-8 ${pathname.startsWith("/patient/appointments/") ? "max-w-none" : "max-w-7xl"} w-full mx-auto`}>
+        <main className={`flex-1 min-h-0 p-4 sm:p-6 lg:p-8 ${pathname.startsWith("/patient/appointments/") ? "max-w-none lg:overflow-y-auto" : "max-w-7xl"} w-full mx-auto`}>
           {children}
         </main>
       </div>

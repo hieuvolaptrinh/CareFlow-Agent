@@ -7,12 +7,19 @@ import type {
   RuntimeStep,
 } from "@/types/journey";
 import { catalog } from "./catalog";
+import {
+  dentalWorkflowIds,
+  contextMissing,
+  contextSummary,
+  dentalFields,
+} from "@/lib/intake-context";
+import { checkSafetyGuardrails } from "@/server/agent/policies/safety-guardrails";
 
 export class JourneyError extends Error {
   constructor(
     message: string,
     public status = 400,
-    public code = "INVALID_TRANSITION",
+    public code = "INVALID_TRANSITION"
   ) {
     super(message);
   }
@@ -24,10 +31,26 @@ const committed = (step: RuntimeStep) =>
   step.status === "IN_PROGRESS" ||
   step.resultPending;
 export const actionSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("SAVE_DENTAL_INTAKE"),
+    workflowId: z.enum(dentalWorkflowIds),
+    facts: z.partialRecord(
+      z.enum(
+        Object.keys(dentalFields) as [
+          keyof typeof dentalFields,
+          ...(keyof typeof dentalFields)[]
+        ]
+      ),
+      z.object({
+        value: z.string().trim().min(1).max(400),
+        status: z.enum(["ANSWERED", "UNKNOWN", "DECLINED"]),
+      })
+    ),
+  }),
   z.object({ type: z.literal("CONFIRM_INTAKE") }),
   z.object({
     type: z.literal("CHOOSE_TEMPLATE"),
-    workflowId: z.enum(["dental", "followup", "checkup"]),
+    workflowId: z.enum(["dental", "followup", "checkup", ...dentalWorkflowIds]),
     summary: z.string().trim().min(3).max(3000),
   }),
   z.object({ type: z.literal("CHECKIN") }),
@@ -38,6 +61,14 @@ export const actionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("REASSESS") }),
 ]);
 export const simulationSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("START") }),
+  z.object({ type: z.literal("PAUSE") }),
+  z.object({ type: z.literal("RESUME") }),
+  z.object({
+    type: z.literal("SET_SPEED"),
+    speed: z.union([z.literal(1), z.literal(2), z.literal(4)]),
+  }),
+  z.object({ type: z.literal("TICK") }),
   z.object({
     type: z.literal("ROOM"),
     roomId: z.string(),
@@ -64,14 +95,14 @@ export type SimulationAction = z.infer<typeof simulationSchema>;
 export function createAppointment(
   id: string,
   ownerId: string,
-  now: number,
+  now: number
 ): Appointment {
   return {
     id,
     ownerId,
     demo: true,
     visitId: id,
-    title: "Ca khám demo mới",
+    title: "Ca khám  mới",
     revision: 0,
     createdAt: now,
     updatedAt: now,
@@ -92,7 +123,7 @@ export function createAppointment(
           capacity: 1,
           updatedAt: now,
         },
-      ]),
+      ])
     ),
     conditions: {},
     proposal: null,
@@ -104,10 +135,10 @@ export function createAppointment(
 export function buildJourney(a: Appointment, intake: Intake) {
   if (a.status !== "PLANNED")
     throw new JourneyError(
-      "Ca đã bắt đầu. Hãy yêu cầu hỗ trợ để thay đổi nhu cầu khám.",
+      "Ca đã bắt đầu. Hãy yêu cầu hỗ trợ để thay đổi nhu cầu khám."
     );
   const definition = catalog.workflows.find(
-    (w) => w.id === intake.workflowId && w.kind === intake.kind,
+    (w) => w.id === intake.workflowId && w.kind === intake.kind
   );
   if (!definition)
     throw new JourneyError("Quy trình không có trong danh mục demo.");
@@ -125,13 +156,13 @@ export function buildJourney(a: Appointment, intake: Intake) {
         ticket: "NONE",
         resultPending: false,
       },
-    ]),
+    ])
   );
   a.order = definition.steps.map((s) => s.id);
   a.conditions = Object.fromEntries(
     definition.steps
       .filter((s) => s.condition)
-      .map((s) => [s.condition!, "UNDECIDED"]),
+      .map((s) => [s.condition!, "UNDECIDED"])
   );
   a.proposal = null;
   a.onHoldReason = null;
@@ -198,7 +229,7 @@ function eligibleOrder(a: Appointment, order: string[]) {
 function candidateOrders(a: Appointment): string[][] {
   let orders = [[...a.order]];
   const groups = new Set(
-    a.workflow!.steps.map((s) => s.reorderGroup).filter(Boolean),
+    a.workflow!.steps.map((s) => s.reorderGroup).filter(Boolean)
   );
   for (const group of groups) {
     const indices = a.order
@@ -207,7 +238,7 @@ function candidateOrders(a: Appointment): string[][] {
         ({ id }) =>
           a.workflow!.steps.find((s) => s.id === id)?.reorderGroup === group &&
           !done(a.steps[id]) &&
-          !committed(a.steps[id]),
+          !committed(a.steps[id])
       );
     const permutations = (ids: string[]): string[][] =>
       ids.length <= 1
@@ -216,7 +247,7 @@ function candidateOrders(a: Appointment): string[][] {
             permutations(ids.filter((_, j) => i !== j)).map((rest) => [
               id,
               ...rest,
-            ]),
+            ])
           );
     // Bound search even if a later catalog grows.
     if (indices.length > 5) continue;
@@ -228,7 +259,7 @@ function candidateOrders(a: Appointment): string[][] {
             next[v.i] = ids[i];
           });
           return next;
-        }),
+        })
       )
       .slice(0, 120);
   }
@@ -239,7 +270,7 @@ function duration(
   a: Appointment,
   order: string[],
   now: number,
-  optimizeRooms: boolean,
+  optimizeRooms: boolean
 ) {
   let elapsed = 0;
   const assignments: Record<string, string | null> = {};
@@ -257,8 +288,8 @@ function duration(
       optimizeRooms && !committed(step)
         ? def.roomIds
         : step.roomId
-          ? [step.roomId]
-          : [];
+        ? [step.roomId]
+        : [];
     if (!choices.length) continue;
     let best = Infinity,
       roomId: string | null = step.roomId;
@@ -282,7 +313,7 @@ function duration(
 
 export function calculateProposal(
   a: Appointment,
-  now: number,
+  now: number
 ): Proposal | null {
   if (
     !a.workflow ||
@@ -299,7 +330,7 @@ export function calculateProposal(
     return null;
   if (
     Object.values(a.rooms).some(
-      (r) => now - r.updatedAt > catalog.policy.freshnessMs,
+      (r) => now - r.updatedAt > catalog.policy.freshnessMs
     )
   )
     return null;
@@ -337,8 +368,12 @@ export function calculateProposal(
     savingMinutes: saving,
     reason:
       saving === null
-        ? `Phòng hiện tại không sẵn sàng. Có thể tiếp tục tại ${target ? a.rooms[target].name : "bước tiếp theo"}.`
-        : `Lộ trình mới dự kiến giảm ${saving} phút chờ. Bước tiếp theo: ${target ? a.rooms[target].name : nextId}.`,
+        ? `Phòng hiện tại không sẵn sàng. Có thể tiếp tục tại ${
+            target ? a.rooms[target].name : "bước tiếp theo"
+          }.`
+        : `Lộ trình mới dự kiến giảm ${saving} phút chờ. Bước tiếp theo: ${
+            target ? a.rooms[target].name : nextId
+          }.`,
     fingerprint,
     createdAt: now,
   };
@@ -351,8 +386,51 @@ export function refreshProposal(a: Appointment, now: number) {
 export function applyAction(
   a: Appointment,
   action: JourneyAction,
-  now: number,
+  now: number
 ): string {
+  if (action.type === "SAVE_DENTAL_INTAKE") {
+    if (!a.intakeContext || a.status !== "PLANNED")
+      throw new JourneyError(
+        "Biểu mẫu chỉ dùng trước khi bắt đầu ca nha khoa."
+      );
+    const ctx = a.intakeContext;
+    for (const [key, fact] of Object.entries(action.facts))
+      if (fact)
+        ctx.facts[key] = {
+          ...fact,
+          sourceMessageId: "form-pending",
+          updatedAt: now,
+        };
+    ctx.version++;
+    ctx.workflowId = action.workflowId;
+    ctx.confirmedVersion = null;
+    ctx.summary = contextSummary(ctx);
+    ctx.missing = contextMissing(ctx);
+    const urgent = checkSafetyGuardrails(
+      Object.values(action.facts)
+        .map((f) => f?.value ?? "")
+        .join(". ")
+    ).isEmergency;
+    ctx.safety = urgent
+      ? "URGENT"
+      : ctx.facts.breathing?.value === "Thở bình thường" &&
+        ctx.facts.swallowing?.value === "Nuốt bình thường" &&
+        ctx.facts.swelling?.value === "Không sưng"
+      ? "CLEAR"
+      : "UNCLEAR";
+    a.draftIntake = null;
+    if (urgent) {
+      a.onHoldReason =
+        "Thông tin cần nhân viên y tế đánh giá ngay. Hãy tìm hỗ trợ y tế trực tiếp tại nơi bạn đang ở.";
+      a.status = "ON_HOLD";
+      return a.onHoldReason;
+    }
+    if (ctx.missing.length || ctx.safety !== "CLEAR")
+      return "Lời khai đã lưu. Cần bổ sung các mục chưa rõ hoặc yêu cầu hỗ trợ trước khi tạo hành trình.";
+    const wf = catalog.workflows.find((w) => w.id === action.workflowId)!;
+    a.draftIntake = { workflowId: wf.id, kind: wf.kind, summary: ctx.summary };
+    return "Lời khai đã được lưu. Hãy xác nhận bản tóm tắt để bắt đầu hành trình.";
+  }
   if (action.type === "SUPPORT") {
     a.onHoldReason = catalog.policy.handoffMessage;
     a.status = "ON_HOLD";
@@ -362,7 +440,7 @@ export function applyAction(
   if (action.type === "CHOOSE_TEMPLATE") {
     if (a.status !== "PLANNED")
       throw new JourneyError(
-        "Ca đã bắt đầu; hãy yêu cầu hỗ trợ để thay đổi nhu cầu.",
+        "Ca đã bắt đầu; hãy yêu cầu hỗ trợ để thay đổi nhu cầu."
       );
     const wf = catalog.workflows.find((w) => w.id === action.workflowId)!;
     a.draftIntake = {
@@ -370,12 +448,23 @@ export function applyAction(
       kind: wf.kind,
       summary: action.summary,
     };
-    return "Hãy kiểm tra bản tóm tắt và xác nhận để lập hành trình demo.";
+    return "Hãy kiểm tra bản tóm tắt và xác nhận để lập hành trình.";
   }
   if (action.type === "CONFIRM_INTAKE") {
+    if (
+      a.intakeContext &&
+      (contextMissing(a.intakeContext).length ||
+        a.intakeContext.safety !== "CLEAR" ||
+        a.intakeContext.workflowId !== a.draftIntake?.workflowId)
+    )
+      throw new JourneyError(
+        "Cần hoàn tất lời khai nha khoa và kiểm tra thông tin an toàn trước khi xác nhận."
+      );
     if (!a.draftIntake)
       throw new JourneyError("Chưa có thông tin để xác nhận.");
     buildJourney(a, a.draftIntake);
+    if (a.intakeContext)
+      a.intakeContext.confirmedVersion = a.intakeContext.version;
     return "Hành trình đã được lưu. Khi đến bệnh viện, hãy xác nhận check-in.";
   }
   if (a.onHoldReason) throw new JourneyError(a.onHoldReason);
@@ -394,17 +483,17 @@ export function applyAction(
       a.status !== "ACTIVE"
     )
       throw new JourneyError(
-        "Bước này chưa sẵn sàng hoặc không phải bước tiếp theo.",
+        "Bước này chưa sẵn sàng hoặc không phải bước tiếp theo."
       );
     if (
       Object.values(a.steps).some((s) =>
-        ["WAITING", "IN_PROGRESS", "ACTIVE"].includes(s.status),
+        ["WAITING", "IN_PROGRESS", "ACTIVE"].includes(s.status)
       )
     )
       throw new JourneyError("Bạn đang có một bước chưa hoàn tất.");
     if (step.roomId && !roomReady(a.rooms[step.roomId], now))
       throw new JourneyError(
-        "Phòng chưa sẵn sàng hoặc dữ liệu đã cũ. Hãy kiểm tra lại.",
+        "Phòng chưa sẵn sàng hoặc dữ liệu đã cũ. Hãy kiểm tra lại."
       );
     step.status = "WAITING";
     step.ticket = "WAITING";
@@ -417,12 +506,12 @@ export function applyAction(
       throw new JourneyError(
         "Đề xuất đã thay đổi. Hãy xem thông tin mới.",
         409,
-        "STALE_PROPOSAL",
+        "STALE_PROPOSAL"
       );
     // Service increases revision before applying action, so validate against its previous value.
     const current = calculateProposal(
       { ...a, revision: proposal.baseRevision },
-      now,
+      now
     );
     if (
       proposal.baseRevision !== a.revision - 1 ||
@@ -432,7 +521,7 @@ export function applyAction(
       throw new JourneyError(
         "Đề xuất không còn phù hợp. Hãy cập nhật hành trình.",
         409,
-        "STALE_PROPOSAL",
+        "STALE_PROPOSAL"
       );
     if (action.type === "REJECT_PROPOSAL") {
       const first = nextStep(a);
@@ -459,20 +548,22 @@ export function applyAction(
   reconcile(a);
   refreshProposal(a, now);
   return a.status === "COMPLETED"
-    ? "Bạn đã hoàn tất hành trình demo. Lịch sử đã được lưu."
+    ? "Bạn đã hoàn tất hành trình. Toàn bộ các bước vẫn được lưu để xem lại."
     : "Hành trình đã cập nhật. Hãy xem thẻ việc cần làm tiếp theo.";
 }
 
 export function applySimulation(
   a: Appointment,
   command: SimulationAction,
-  now: number,
+  now: number
 ): string {
+  if (["START", "PAUSE", "RESUME", "SET_SPEED", "TICK"].includes(command.type))
+    throw new JourneyError("Lệnh này cần được xử lý bởi bộ điều phối tự động.");
   if (a.status === "COMPLETED" || a.onHoldReason)
     throw new JourneyError("Ca này đã kết thúc hoặc đang chờ hỗ trợ.");
   if (command.type === "ROOM") {
     const room = a.rooms[command.roomId];
-    if (!room) throw new JourneyError("Phòng không tồn tại trong ca demo.");
+    if (!room) throw new JourneyError("Phòng không tồn tại trong hành trình.");
     Object.assign(room, {
       status: command.status,
       doctorStatus: command.doctorStatus,
@@ -486,19 +577,19 @@ export function applySimulation(
     });
   } else if (command.type === "CONDITION") {
     const def = a.workflow?.steps.find(
-      (s) => s.condition === command.condition,
+      (s) => s.condition === command.condition
     );
     if (!def || !def.prerequisites.every((id) => done(a.steps[id])))
       throw new JourneyError(
-        "Cần hoàn thành bước khám trước khi mô phỏng chỉ định.",
+        "Cần hoàn thành bước khám trước khi cập nhật chỉ định."
       );
     const step = a.steps[def.id];
     if (step.status !== "LOCKED")
       throw new JourneyError(
-        "Chỉ định đã được quyết định hoặc bước đã bắt đầu.",
+        "Chỉ định đã được quyết định hoặc bước đã bắt đầu."
       );
     a.conditions[command.condition] = command.value;
-  } else {
+  } else if (command.type === "STEP") {
     const step = a.steps[command.stepId];
     const def = a.workflow?.steps.find((s) => s.id === command.stepId);
     if (!step || !def) throw new JourneyError("Bước không tồn tại.");
@@ -515,6 +606,7 @@ export function applySimulation(
         throw new JourneyError("Phòng/bác sĩ chưa sẵn sàng để bắt đầu.");
       step.ticket = "SERVING";
       step.status = "IN_PROGRESS";
+      step.startedAt = now;
       if (step.roomId) {
         a.rooms[step.roomId].status = "BUSY";
         a.rooms[step.roomId].doctorStatus = "SERVING";
@@ -526,6 +618,7 @@ export function applySimulation(
       step.ticket = "DONE";
       step.resultPending = def.kind === "ORDER";
       step.status = step.resultPending ? "WAITING" : "COMPLETED";
+      if (!step.resultPending) step.completedAt = now;
       if (step.roomId) {
         a.rooms[step.roomId].status = "OPEN";
         a.rooms[step.roomId].doctorStatus = "AVAILABLE";
@@ -536,6 +629,7 @@ export function applySimulation(
         throw new JourneyError("Chưa có kết quả đang chờ.");
       step.resultPending = false;
       step.status = "COMPLETED";
+      step.completedAt = now;
     }
   }
   reconcile(a);
@@ -544,7 +638,7 @@ export function applySimulation(
   if (!a.proposal && next?.roomId && !roomReady(a.rooms[next.roomId], now))
     return "Phòng hoặc bác sĩ của bước tiếp theo chưa sẵn sàng. Chưa tìm thấy phương án thay thế hợp lệ; bạn có thể chờ hoặc yêu cầu hỗ trợ.";
   return Object.values(a.steps).length > 0 && Object.values(a.steps).every(done)
-    ? "Đã hoàn tất hành trình demo. Bạn có thể xem lại toàn bộ các bước."
-    : (a.proposal?.reason ??
-        "Dữ liệu mô phỏng đã cập nhật. Kiểm tra bước tiếp theo của bạn.");
+    ? "Đã hoàn tất hành trình. Bạn có thể xem lại toàn bộ các bước."
+    : a.proposal?.reason ??
+        "Trạng thái hành trình đã cập nhật. Kiểm tra bước tiếp theo của bạn.";
 }

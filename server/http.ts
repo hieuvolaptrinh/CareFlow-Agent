@@ -71,18 +71,12 @@ export async function endpoint(fn: () => Promise<unknown>, status = 200) {
         { success: false, error: { code: error.code, message: error.message } },
         { status: error.status },
       );
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? String(error.code)
-        : "UNKNOWN";
-    console.error("CareFlow request failed", { code });
     return Response.json(
       {
         success: false,
         error: {
           code: "SERVICE_UNAVAILABLE",
-          message:
-            "Chưa thể lưu hoặc tải dữ liệu. Kiểm tra kết nối và cấu hình Firebase rồi thử lại.",
+          message: "Chưa thể lưu hoặc tải dữ liệu. Vui lòng thử lại sau.",
         },
       },
       { status: 503 },

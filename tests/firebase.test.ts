@@ -132,11 +132,13 @@ describe.skipIf(!enabled)(
         code: "REVISION_CONFLICT",
       });
       await started;
-      await mutateAppointment(newer.id, "alice", crypto.randomUUID(), 1, {
+      await expect(mutateAppointment(newer.id, "alice", crypto.randomUUID(), 1, {
         type: "CHOOSE_TEMPLATE",
         workflowId: "followup",
         summary: "Thông tin tái khám mới",
-      });
+      })).rejects.toMatchObject({ code: "AGENT_BUSY" });
+      // Simulate an administrative update during the model request: stale output must still lose.
+      await env.withSecurityRulesDisabled(async (context) => updateDoc(doc(context.firestore(), "appointments", newer.id), { revision: 2, draftIntake: { workflowId: "followup", kind: "FOLLOW_UP", summary: "Thông tin tái khám mới" } }));
       release(result);
       await rejection;
       expect(
@@ -150,6 +152,13 @@ describe.skipIf(!enabled)(
         newAppointment("alice", creationId),
       ]);
       expect(one.id).toBe(two.id);
+      // Existing cases without a dental context retain the original workflow API.
+      await env.withSecurityRulesDisabled(async (context) => {
+        const ref = doc(context.firestore(), "appointments", one.id);
+        const data = (await getDoc(ref)).data()!;
+        delete data.intakeContext;
+        await setDoc(ref, data);
+      });
       const requestId = crypto.randomUUID();
       const action = {
         type: "CHOOSE_TEMPLATE" as const,
