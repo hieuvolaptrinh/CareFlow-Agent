@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { AuthGate } from "@/components/auth/auth-gate";
+import { StartAgentCard } from "@/components/patient/start-agent-card";
 import {
   Activity,
   AlertCircle,
@@ -44,7 +46,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 
-export default function PatientDashboardPage() {
+function Dashboard() {
   const [activeStepId, setActiveStepId] = useState<number>(2);
 
   const visitTimeline = [
@@ -158,6 +160,10 @@ export default function PatientDashboardPage() {
 
   return (
     <div className="space-y-6">
+      <StartAgentCard />
+      <p className="text-xs text-muted-foreground">
+        Các thẻ thông tin bên dưới là dữ liệu giao diện minh họa, không phải hồ sơ hoặc tiến độ thực tế của bạn.
+      </p>
       {/* Active Visit Banner */}
       <div className="bg-white rounded-2xl border border-[#ABE3DF] p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-[#EFF9F7] via-white to-[#EFF9F7]">
         <div className="flex items-center gap-3.5">
@@ -184,7 +190,7 @@ export default function PatientDashboardPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Link href="/patient/careflow">
+          <Link href="#start-agent-title">
             <Button
               size="sm"
               className="bg-[#147D8D] hover:bg-[#106b79] text-white text-xs h-9 gap-1.5 shadow-xs"

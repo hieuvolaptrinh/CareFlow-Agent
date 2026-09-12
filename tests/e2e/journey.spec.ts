@@ -13,13 +13,53 @@ async function signup(page: Page, role: "Bệnh nhân" | "Bác sĩ" = "Bệnh nh
   await page.getByLabel("Mật khẩu", { exact: true }).fill("careflow-demo-123");
   await page.getByRole("button", { name: "Đăng ký", exact: true }).click();
 }
+
+test("dashboard starts Agent directly and retries without creating a second case", async ({ page }) => {
+  await signup(page);
+  await expect(page).toHaveURL(/patient\/dashboard/);
+  const requestIds: string[] = [];
+  let appointmentId = "";
+  await page.route("**/api/appointments", async (route) => {
+    requestIds.push(route.request().postDataJSON().requestId);
+    const response = await route.fetch();
+    expect(response.status()).toBe(201);
+    const result = await response.json();
+    if (!appointmentId) appointmentId = result.data.id;
+    expect(result.data.id).toBe(appointmentId);
+    if (requestIds.length === 1) {
+      await route.fulfill({ status: 503, json: { success: false, error: { code: "SERVICE_UNAVAILABLE", message: "Kết nối bị gián đoạn. Hãy thử lại." } } });
+    } else {
+      await route.fulfill({ response });
+    }
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const start = page.getByRole("button", { name: "Bắt đầu với Agent", exact: true });
+  await expect(start).toBeVisible();
+  await page.screenshot({ path: "test-results/start-agent-mobile.png", fullPage: false });
+  await start.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("region", { name: "Bắt đầu hành trình cùng CareFlow" }).getByRole("alert")).toContainText("Kết nối bị gián đoạn");
+  await page.setViewportSize({ width: 1440, height: 1080 });
+  await page.screenshot({ path: "test-results/start-agent-desktop.png", fullPage: false });
+  await page.getByRole("button", { name: "Thử lại · Bắt đầu với Agent", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/patient/appointments/${appointmentId}$`));
+  expect(requestIds).toHaveLength(2);
+  expect(requestIds[0]).toBe(requestIds[1]);
+  await expect(page.getByText("Chào bạn! Bạn muốn khám mới", { exact: false })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Chào bạn! Bạn muốn khám mới", { exact: false })).toBeVisible();
+});
 test("patient completes persistent journey, confirms replanning, uses two tabs and mobile", async ({
   page,
   context,
 }) => {
   await signup(page);
   await expect(page).toHaveURL(/patient\/dashboard/);
-  await page.getByRole("button", { name: "Tạo ca khám demo" }).click();
+  await page.getByRole("button", { name: "Ẩn thanh bên", exact: true }).click();
+  await expect(page.locator("#patient-sidebar")).toBeHidden();
+  await page.getByRole("button", { name: "Mở thanh bên", exact: true }).click();
+  await expect(page.locator("#patient-sidebar")).toBeVisible();
+  await page.getByRole("button", { name: "Bắt đầu với Agent", exact: true }).click();
   await expect(page).toHaveURL(/patient\/appointments\//);
   await page
     .getByText("Chọn quy trình trực tiếp / khi AI chưa sẵn sàng")
@@ -92,16 +132,16 @@ test("patient completes persistent journey, confirms replanning, uses two tabs a
     "Tổng hợp kết quả",
   ]) {
     await page.getByRole("button", { name: "Tôi đã đến phòng này" }).click();
-    await page.getByRole("button", { name: "Gọi số", exact: true }).click();
+    await page.getByRole("button", { name: "Mô phỏng: Gọi số", exact: true }).click();
     await page
-      .getByRole("button", { name: "Bắt đầu phục vụ", exact: true })
+      .getByRole("button", { name: "Mô phỏng: Bắt đầu phục vụ", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Hoàn tất thực hiện", exact: true })
+      .getByRole("button", { name: "Mô phỏng: Hoàn tất thực hiện", exact: true })
       .click();
     if (name !== "Tổng hợp kết quả")
       await page
-        .getByRole("button", { name: "Kết quả đã sẵn sàng", exact: true })
+        .getByRole("button", { name: "Mô phỏng: Kết quả đã sẵn sàng", exact: true })
         .click();
   }
   await expect(

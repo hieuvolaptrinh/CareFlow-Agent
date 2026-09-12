@@ -12,6 +12,7 @@ import dagre from "@dagrejs/dagre";
 import "@xyflow/react/dist/style.css";
 import type { Appointment } from "@/types/journey";
 import { stepLabels } from "@/types/journey";
+import { stepPresentation } from "@/lib/step-presentation";
 import { BoxFlowRoom } from "@/components/box-flow/box-flow-room";
 import {
   BoxFlowBilling,
@@ -55,7 +56,7 @@ export function JourneyFlow({ appointment: a }: { appointment: Appointment }) {
       marginx: 24,
       marginy: 24,
     });
-    order.forEach((id) => graph.setNode(id, { width: 264, height: 270 }));
+    order.forEach((id) => graph.setNode(id, { width: 320, height: 460 }));
     definitions.forEach((s) =>
       s.prerequisites.forEach((p) => graph.setEdge(p, s.id)),
     );
@@ -63,7 +64,7 @@ export function JourneyFlow({ appointment: a }: { appointment: Appointment }) {
     return Object.fromEntries(
       order.map((id) => [
         id,
-        { x: graph.node(id).x - 132, y: graph.node(id).y - 135 },
+        { x: graph.node(id).x - 160, y: graph.node(id).y - 230 },
       ]),
     );
   }, [definitionKey, orderKey]);
@@ -81,6 +82,9 @@ export function JourneyFlow({ appointment: a }: { appointment: Appointment }) {
       room: a.steps[s.id].roomId ? a.rooms[a.steps[s.id].roomId!] : null,
       sequence: a.order.indexOf(s.id) + 1,
       current: s.id === current,
+      statusText: stepPresentation(a, s.id).status,
+      guidance: stepPresentation(a, s.id).reason,
+      inspect: () => setSelected(s.id),
     },
   }));
   const dependencies: Edge[] = a.workflow.steps.flatMap((s) =>
@@ -117,7 +121,7 @@ export function JourneyFlow({ appointment: a }: { appointment: Appointment }) {
     );
   const chosen = a.workflow.steps.find((s) => s.id === selected);
   return (
-    <div className="relative h-[570px] min-w-0 rounded-2xl overflow-hidden border bg-background">
+    <div className="relative h-[650px] min-w-0 rounded-2xl overflow-hidden border bg-background">
       <ReactFlow
         nodes={nodes}
         edges={[...dependencies, ...suggested]}
@@ -158,6 +162,7 @@ export function JourneyFlow({ appointment: a }: { appointment: Appointment }) {
             {stepLabels[a.steps[chosen.id].status]}
           </p>
           <p className="text-sm text-muted-foreground">{chosen.instruction}</p>
+          <p className="text-sm mt-3 rounded-lg bg-muted p-3">{stepPresentation(a, chosen.id).reason}</p>
           {chosen.prerequisites.length > 0 && (
             <p className="text-xs mt-3">
               Cần hoàn tất:{" "}

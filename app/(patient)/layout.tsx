@@ -38,6 +38,7 @@ export default function PatientLayout({
 }) {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const navigationGroups = [
     {
@@ -208,7 +209,7 @@ export default function PatientLayout({
   return (
     <div className="min-h-screen bg-[#F7F9FA] text-[#171A1C] flex">
       {/* Desktop Sidebar (230px wide, following AGENTS.md) */}
-      <aside className="hidden lg:block w-[230px] shrink-0 border-r border-[#E8ECEE] bg-white h-screen sticky top-0">
+      <aside id="patient-sidebar" className={`${sidebarOpen ? "hidden lg:block" : "hidden"} w-[230px] shrink-0 border-r border-[#E8ECEE] bg-white h-screen sticky top-0 overflow-y-auto`}>
         <SidebarContent />
       </aside>
 
@@ -217,9 +218,20 @@ export default function PatientLayout({
         {/* Compact Top Bar (following AGENTS.md) */}
         <header className="h-16 bg-white border-b border-[#E8ECEE] sticky top-0 z-30 px-4 sm:px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden lg:inline-flex shrink-0"
+              aria-label={sidebarOpen ? "Ẩn thanh bên" : "Mở thanh bên"}
+              aria-expanded={sidebarOpen}
+              aria-controls="patient-sidebar"
+              onClick={() => setSidebarOpen((open) => !open)}
+            >
+              <Menu className="size-5" />
+            </Button>
             {/* Mobile Sheet Trigger */}
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-              <SheetTrigger className="lg:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-[#667078] hover:bg-[#F0F8F7] cursor-pointer">
+              <SheetTrigger aria-label="Mở menu bệnh nhân" className="lg:hidden inline-flex items-center justify-center rounded-lg h-11 w-11 text-[#667078] hover:bg-[#F0F8F7] cursor-pointer">
                 <Menu className="w-5 h-5" />
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-[260px]">
@@ -272,7 +284,7 @@ export default function PatientLayout({
         </header>
 
         {/* Content Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className={`flex-1 p-4 sm:p-6 lg:p-8 ${pathname.startsWith("/patient/appointments/") ? "max-w-none" : "max-w-7xl"} w-full mx-auto`}>
           {children}
         </main>
       </div>

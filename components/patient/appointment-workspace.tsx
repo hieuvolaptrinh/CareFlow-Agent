@@ -21,7 +21,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useAppointment } from "./use-appointment";
 import { SimulationPanel } from "./simulation-panel";
-import { doctorLabels, roomLabels, stepLabels } from "@/types/journey";
+import { StepDemoControl } from "./step-demo-control";
+import { stepPresentation } from "@/lib/step-presentation";
+import { doctorLabels, roomLabels } from "@/types/journey";
 
 const JourneyFlow = dynamic(
   () => import("./journey-flow").then((m) => m.JourneyFlow),
@@ -564,6 +566,31 @@ export function AppointmentWorkspace({
                 Kiểm tra lộ trình
               </Button>
             )}
+            {next && (
+              <>
+                <p className="mt-4 text-sm font-medium" role="status">
+                  {stepPresentation(a, next.id).status} · {stepPresentation(a, next.id).reason}
+                </p>
+                <StepDemoControl
+                  appointment={a}
+                  stepId={next.id}
+                  disabled={disabled || (stale && !next.resultPending && next.ticket !== "SERVING")}
+                  send={send}
+                />
+              </>
+            )}
+            {a.workflow && (
+              <details className="mt-4 rounded-xl border bg-card p-3 text-sm">
+                <summary className="cursor-pointer font-medium">Các khối bắt đầu hoạt động như thế nào?</summary>
+                <ol className="mt-3 list-decimal pl-5 space-y-2 text-muted-foreground">
+                  <li>Xác nhận nhu cầu để tạo flow, sau đó bấm “Tôi đã đến · Check-in”.</li>
+                  <li>Ở bước hiện tại, bấm “Tôi đã đến phòng này” để vào hàng đợi.</li>
+                  <li>Trong demo: Gọi số → Bắt đầu phục vụ → Hoàn tất thực hiện. Dịch vụ cần kết quả phải xác nhận kết quả sẵn sàng.</li>
+                  <li>Bước khóa cần hoàn tất bước trước hoặc quyết định chỉ định trong bảng mô phỏng. Không tự bỏ qua điều kiện.</li>
+                </ol>
+                <p className="mt-3 text-xs text-muted-foreground">Server kiểm tra và lưu mỗi thao tác vào Firestore; flow cập nhật theo dữ liệu đã lưu, không tự chạy theo thời gian. Nút demo đóng vai nhân viên, không phải quyết định của AI.</p>
+              </details>
+            )}
           </div>
           {a.proposal && (
             <section
@@ -677,7 +704,7 @@ export function AppointmentWorkspace({
                           <p className="text-xs text-primary my-1">
                             {s.resultPending
                               ? "Đang chờ kết quả"
-                              : stepLabels[s.status]}
+                              : stepPresentation(a, id).status}
                           </p>
                           {r && (
                             <p className="text-xs text-muted-foreground">
@@ -685,7 +712,7 @@ export function AppointmentWorkspace({
                             </p>
                           )}
                           <p className="text-xs mt-2 text-muted-foreground">
-                            {def.instruction}
+                            {stepPresentation(a, id).reason}
                           </p>
                           {def.condition && (
                             <p className="text-xs mt-1">

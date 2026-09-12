@@ -7,9 +7,10 @@ import {
   MapPin,
   Stethoscope,
   Users,
+  LoaderCircle,
 } from "lucide-react";
 import type { Room, RuntimeStep, StepDefinition } from "@/types/journey";
-import { doctorLabels, roomLabels, stepLabels } from "@/types/journey";
+import { doctorLabels, roomLabels } from "@/types/journey";
 
 export type FlowData = {
   definition: StepDefinition;
@@ -17,6 +18,9 @@ export type FlowData = {
   room: Room | null;
   sequence: number;
   current: boolean;
+  statusText: string;
+  guidance: string;
+  inspect: () => void;
 } & Record<string, unknown>;
 export function DoctorStatus({ room }: { room: Room }) {
   return room.doctorName ? (
@@ -33,10 +37,11 @@ export function DoctorStatus({ room }: { room: Room }) {
 }
 export function FlowCard({ data, label }: { data: FlowData; label: string }) {
   const { definition: def, step, room, sequence, current } = data;
+  const processing = step.ticket === "SERVING";
   const completed = ["COMPLETED", "SKIPPED"].includes(step.status);
   return (
     <div
-      className={`w-[264px] rounded-2xl border bg-card p-4 text-left ${current ? "border-primary ring-2 ring-primary/10" : "border-border"} ${step.status === "SKIPPED" ? "opacity-60" : ""}`}
+      className={`w-[320px] h-[460px] flex flex-col rounded-2xl border-2 bg-card p-4 text-left shadow-sm ${current ? "border-primary ring-4 ring-primary/10" : "border-border"} ${step.status === "SKIPPED" ? "opacity-70" : ""}`}
     >
       <Handle
         type="target"
@@ -51,22 +56,19 @@ export function FlowCard({ data, label }: { data: FlowData; label: string }) {
           {String(sequence).padStart(2, "0")}
         </span>
       </div>
-      <h3 className="font-semibold text-sm mt-2 leading-5">{def.name}</h3>
+      <h3 className="font-semibold text-base mt-2 leading-6">{def.name}</h3>
+      {current && <p className="text-xs font-semibold text-primary mt-1">BƯỚC HIỆN TẠI</p>}
       <div
-        className={`mt-3 flex items-center gap-1.5 text-xs ${completed ? "text-primary" : step.status === "LOCKED" ? "text-muted-foreground" : "text-foreground"}`}
+        className={`mt-3 rounded-lg px-2.5 py-2 flex items-center gap-2 text-sm font-medium ${completed ? "bg-emerald-50 text-emerald-800" : processing ? "bg-primary/10 text-primary" : step.status === "LOCKED" ? "bg-muted text-muted-foreground" : "bg-amber-50 text-amber-900"}`}
       >
-        {completed ? (
+        {processing ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : completed ? (
           <CheckCircle2 className="size-3.5" />
         ) : step.status === "LOCKED" ? (
           <LockKeyhole className="size-3.5" />
         ) : (
           <Clock3 className="size-3.5" />
         )}
-        {step.resultPending
-          ? "Đang chờ kết quả"
-          : step.ticket === "CALLED"
-            ? "Đã gọi đến lượt bạn"
-            : stepLabels[step.status]}
+        {data.statusText}
       </div>
       {room && (
         <>
@@ -75,7 +77,7 @@ export function FlowCard({ data, label }: { data: FlowData; label: string }) {
             {room.name} · {room.floor}
           </p>
           <div className="mt-2 flex justify-between gap-2 text-xs">
-            <span>{roomLabels[room.status]}</span>
+            <span>Phòng: {roomLabels[room.status]}</span>
             <span className="flex items-center gap-1">
               <Users className="size-3" />
               {room.queueCount} lượt
@@ -83,7 +85,7 @@ export function FlowCard({ data, label }: { data: FlowData; label: string }) {
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             Chờ dự kiến{" "}
-            {Math.ceil(room.queueCount / room.capacity) * room.serviceMinutes}{" "}
+            {Math.ceil(room.queueCount / Math.max(1, room.capacity)) * room.serviceMinutes}{" "}
             phút · demo
           </p>
           <DoctorStatus room={room} />
@@ -94,6 +96,10 @@ export function FlowCard({ data, label }: { data: FlowData; label: string }) {
           Chỉ thực hiện nếu được chỉ định
         </p>
       )}
+      <p className="text-xs leading-5 mt-3 text-muted-foreground line-clamp-3">{data.guidance}</p>
+      <button type="button" className="nodrag nopan mt-auto min-h-11 rounded-lg border border-primary/20 bg-primary/5 px-3 text-sm font-medium text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary" onClick={(event) => { event.stopPropagation(); data.inspect(); }}>
+        Xem hướng dẫn & điều kiện
+      </button>
       <Handle
         type="source"
         position={Position.Right}
