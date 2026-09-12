@@ -1,0 +1,24 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function ownVisit(id) {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'PATIENT' &&
+        get(/databases/$(database)/documents/appointments/$(id)).data.ownerId == request.auth.uid;
+    }
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /appointments/{id} {
+      allow read: if request.auth != null && resource.data.ownerId == request.auth.uid &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'PATIENT';
+      allow write: if false;
+      match /{collection}/{document} {
+        allow read: if collection in ['messages', 'notifications', 'agentRuns', 'supportRequests'] && ownVisit(id);
+        allow write: if false;
+      }
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

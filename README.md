@@ -1,4 +1,14 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CareFlow Agent
+
+Patient journey demo built with Next.js, Firebase and Gemini on Vertex AI.
+
+Start at `/login`, register as Patient, then create a demo case from `/patient/dashboard`.
+The appointment workspace includes a chat, a left-to-right workflow, realtime notifications
+and a per-case simulation panel. Doctor accounts currently have a waiting page only.
+
+See [the setup and demo walkthrough](docs/patient-journey.md) for Firebase configuration,
+local emulators, tests, and the operational limits of the demo. Workflows and mock staff
+are illustrative data, not hospital-approved clinical protocols.
 
 ## Getting Started
 

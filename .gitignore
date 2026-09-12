@@ -14,9 +14,15 @@ gcp-key-private.json
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 
 # next.js
 /.next/
+/.next-e2e/
 /out/
 
 # production

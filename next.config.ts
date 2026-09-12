@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Isolate browser-test output from a developer's running local server.
+  distDir: process.env.CAREFLOW_BUILD_DIR || ".next",
 };
 
 export default nextConfig;

@@ -1,8 +1,10 @@
 "use client";
 
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { connectAuthEmulator, getAuth } from "firebase/auth";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+
+const connected = new WeakSet<object>();
 
 export function getFirebaseClient() {
   const config = {
@@ -22,5 +24,11 @@ export function getFirebaseClient() {
     ? getApp("careflow-web")
     : initializeApp(config, "careflow-web");
 
-  return { app, auth: getAuth(app), db: getFirestore(app) };
+  const auth = getAuth(app), db = getFirestore(app);
+  if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true" && !connected.has(app)) {
+    connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+    connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    connected.add(app);
+  }
+  return { app, auth, db };
 }

@@ -1,0 +1,413 @@
+{
+  "version": 1,
+  "policy": {
+    "minSavingMinutes": 5,
+    "rejectionCooldownMs": 300000,
+    "freshnessMs": 300000,
+    "redFlags": ["đau ngực dữ dội", "khó thở", "bất tỉnh", "chảy máu xối xả", "co giật"],
+    "handoffMessage": "Yêu cầu hỗ trợ đã được ghi nhận trong demo; chưa có nhân viên thật nhận ca. Hãy liên hệ quầy tiếp nhận nếu bạn đang ở bệnh viện."
+  },
+  "resources": [
+    {
+      "id": "reception",
+      "name": "Quầy tiếp nhận",
+      "floor": "Tầng 1",
+      "serviceId": "reception",
+      "doctorName": null,
+      "doctorSpecialty": null,
+      "serviceMinutes": 3,
+      "travelMinutes": 1
+    },
+    {
+      "id": "dental-a",
+      "name": "Phòng A · Nha khoa",
+      "floor": "Tầng 2",
+      "serviceId": "dental",
+      "doctorName": "BS. An (demo)",
+      "doctorSpecialty": "Răng hàm mặt",
+      "serviceMinutes": 10,
+      "travelMinutes": 2
+    },
+    {
+      "id": "dental-a2",
+      "name": "Phòng A2 · Nha khoa",
+      "floor": "Tầng 2",
+      "serviceId": "dental",
+      "doctorName": "BS. Bình (demo)",
+      "doctorSpecialty": "Răng hàm mặt",
+      "serviceMinutes": 10,
+      "travelMinutes": 2
+    },
+    {
+      "id": "lab-a",
+      "name": "Phòng A · Xét nghiệm",
+      "floor": "Tầng 1",
+      "serviceId": "lab",
+      "doctorName": null,
+      "doctorSpecialty": null,
+      "serviceMinutes": 8,
+      "travelMinutes": 2
+    },
+    {
+      "id": "image-b",
+      "name": "Phòng B · Chẩn đoán hình ảnh",
+      "floor": "Tầng 2",
+      "serviceId": "imaging",
+      "doctorName": null,
+      "doctorSpecialty": null,
+      "serviceMinutes": 10,
+      "travelMinutes": 3
+    },
+    {
+      "id": "consult-c",
+      "name": "Phòng C · Khám tổng hợp",
+      "floor": "Tầng 2",
+      "serviceId": "general",
+      "doctorName": "BS. Chi (demo)",
+      "doctorSpecialty": "Khám tổng hợp",
+      "serviceMinutes": 12,
+      "travelMinutes": 3
+    },
+    {
+      "id": "cashier",
+      "name": "Quầy thanh toán",
+      "floor": "Tầng 1",
+      "serviceId": "billing",
+      "doctorName": null,
+      "doctorSpecialty": null,
+      "serviceMinutes": 3,
+      "travelMinutes": 2
+    },
+    {
+      "id": "pharmacy",
+      "name": "Quầy nhận thuốc",
+      "floor": "Tầng 1",
+      "serviceId": "pharmacy",
+      "doctorName": null,
+      "doctorSpecialty": null,
+      "serviceMinutes": 5,
+      "travelMinutes": 1
+    }
+  ],
+  "workflows": [
+    {
+      "id": "dental",
+      "name": "Khám mới · Nha khoa",
+      "kind": "NEW",
+      "version": 1,
+      "demo": true,
+      "questions": [
+        "Bạn muốn khám răng vì vấn đề gì?",
+        "Tình trạng này bắt đầu khi nào?"
+      ],
+      "selection": "Người dùng xác nhận khám mới nha khoa; không dùng cho triệu chứng ngoài phạm vi.",
+      "steps": [
+        {
+          "id": "checkin",
+          "name": "Tiếp nhận & check-in",
+          "kind": "CHECKIN",
+          "prerequisites": [],
+          "roomIds": [
+            "reception"
+          ],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Xác nhận đã đến bệnh viện để bắt đầu ca demo."
+        },
+        {
+          "id": "consult",
+          "name": "Khám nha khoa ban đầu",
+          "kind": "DOCTOR",
+          "prerequisites": [
+            "checkin"
+          ],
+          "roomIds": [
+            "dental-a",
+            "dental-a2"
+          ],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "lab",
+          "name": "Xét nghiệm theo chỉ định",
+          "kind": "ORDER",
+          "prerequisites": [
+            "consult"
+          ],
+          "roomIds": [
+            "lab-a"
+          ],
+          "required": false,
+          "reorderGroup": "investigations",
+          "condition": "lab",
+          "instruction": "Chỉ thực hiện dịch vụ đã được xác nhận trong gói hoặc chỉ định demo."
+        },
+        {
+          "id": "imaging",
+          "name": "Chẩn đoán hình ảnh theo chỉ định",
+          "kind": "ORDER",
+          "prerequisites": [
+            "consult"
+          ],
+          "roomIds": [
+            "image-b"
+          ],
+          "required": false,
+          "reorderGroup": "investigations",
+          "condition": "imaging",
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "review",
+          "name": "Xem lại kết quả",
+          "kind": "DOCTOR",
+          "prerequisites": [
+            "lab",
+            "imaging"
+          ],
+          "roomIds": [
+            "dental-a",
+            "dental-a2"
+          ],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "billing",
+          "name": "Xác nhận thanh toán",
+          "kind": "BILLING",
+          "prerequisites": [
+            "review"
+          ],
+          "roomIds": [
+            "cashier"
+          ],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "medication",
+          "name": "Nhận thuốc nếu có đơn",
+          "kind": "PHARMACY",
+          "prerequisites": [
+            "billing"
+          ],
+          "roomIds": [
+            "pharmacy"
+          ],
+          "required": false,
+          "reorderGroup": null,
+          "condition": "medication",
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "finish",
+          "name": "Hoàn tất hành trình",
+          "kind": "FINISH",
+          "prerequisites": [
+            "medication"
+          ],
+          "roomIds": [],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Bạn đã hoàn tất các bước của ca demo. Có thể xem lại lịch sử."
+        }
+      ]
+    },
+    {
+      "id": "followup",
+      "name": "Tái khám",
+      "kind": "FOLLOW_UP",
+      "version": 1,
+      "demo": true,
+      "questions": [
+        "Bạn tái khám chuyên khoa nào?",
+        "Bạn có giấy hẹn hoặc thông tin lần khám trước không?"
+      ],
+      "selection": "Người dùng xác nhận tái khám; ghi nhận thông tin lần trước, chưa xác minh lịch hẹn thật.",
+      "steps": [
+        {
+          "id": "checkin",
+          "name": "Tiếp nhận & check-in",
+          "kind": "CHECKIN",
+          "prerequisites": [],
+          "roomIds": [
+            "reception"
+          ],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Xác nhận đã đến bệnh viện để bắt đầu ca demo."
+        },
+        {
+          "id": "consult",
+          "name": "Gặp bác sĩ tái khám",
+          "kind": "DOCTOR",
+          "prerequisites": [
+            "checkin"
+          ],
+          "roomIds": [
+            "consult-c"
+          ],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "lab",
+          "name": "Xét nghiệm theo chỉ định",
+          "kind": "ORDER",
+          "prerequisites": [
+            "consult"
+          ],
+          "roomIds": [
+            "lab-a"
+          ],
+          "required": false,
+          "reorderGroup": "investigations",
+          "condition": "lab",
+          "instruction": "Chỉ thực hiện dịch vụ đã được xác nhận trong gói hoặc chỉ định demo."
+        },
+        {
+          "id": "imaging",
+          "name": "Chẩn đoán hình ảnh theo chỉ định",
+          "kind": "ORDER",
+          "prerequisites": [
+            "consult"
+          ],
+          "roomIds": [
+            "image-b"
+          ],
+          "required": false,
+          "reorderGroup": "investigations",
+          "condition": "imaging",
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "review",
+          "name": "Tổng hợp lần tái khám",
+          "kind": "DOCTOR",
+          "prerequisites": [
+            "lab",
+            "imaging"
+          ],
+          "roomIds": [
+            "consult-c"
+          ],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "finish",
+          "name": "Hoàn tất hành trình",
+          "kind": "FINISH",
+          "prerequisites": [
+            "review"
+          ],
+          "roomIds": [],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Bạn đã hoàn tất các bước của ca demo. Có thể xem lại lịch sử."
+        }
+      ]
+    },
+    {
+      "id": "checkup",
+      "name": "Khám sức khỏe · Gói demo",
+      "kind": "CHECKUP",
+      "version": 1,
+      "demo": true,
+      "questions": [
+        "Bạn muốn khám sức khỏe theo gói demo chứ?"
+      ],
+      "selection": "Người dùng chọn gói demo; danh mục bên dưới chỉ minh họa phần mềm.",
+      "steps": [
+        {
+          "id": "checkin",
+          "name": "Tiếp nhận & check-in",
+          "kind": "CHECKIN",
+          "prerequisites": [],
+          "roomIds": [
+            "reception"
+          ],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Xác nhận đã đến bệnh viện để bắt đầu ca demo."
+        },
+        {
+          "id": "lab",
+          "name": "Xét nghiệm theo chỉ định",
+          "kind": "ORDER",
+          "prerequisites": [
+            "checkin"
+          ],
+          "roomIds": [
+            "lab-a"
+          ],
+          "required": true,
+          "reorderGroup": "investigations",
+          "condition": null,
+          "instruction": "Chỉ thực hiện dịch vụ đã được xác nhận trong gói hoặc chỉ định demo."
+        },
+        {
+          "id": "imaging",
+          "name": "Chẩn đoán hình ảnh theo chỉ định",
+          "kind": "ORDER",
+          "prerequisites": [
+            "checkin"
+          ],
+          "roomIds": [
+            "image-b"
+          ],
+          "required": true,
+          "reorderGroup": "investigations",
+          "condition": null,
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "review",
+          "name": "Tổng hợp kết quả",
+          "kind": "DOCTOR",
+          "prerequisites": [
+            "lab",
+            "imaging"
+          ],
+          "roomIds": [
+            "consult-c"
+          ],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Làm theo hướng dẫn của nhân viên tại phòng."
+        },
+        {
+          "id": "finish",
+          "name": "Hoàn tất hành trình",
+          "kind": "FINISH",
+          "prerequisites": [
+            "review"
+          ],
+          "roomIds": [],
+          "required": true,
+          "reorderGroup": null,
+          "condition": null,
+          "instruction": "Bạn đã hoàn tất các bước của ca demo. Có thể xem lại lịch sử."
+        }
+      ]
+    }
+  ]
+}
